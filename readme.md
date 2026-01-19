@@ -90,38 +90,12 @@ func sourceURL(for bridge: RCTBridge) -> URL? {
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
 #else
     // 1. Check for downloaded updates
-    if let latestBundle = ReagierenBundleLoader.getLatestBundleURL() {
+    if let latestBundle = Reagieren.getLatestBundleURL() {
         return latestBundle
     }
     // 2. Fallback to bundled resource
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
-}
-
-// Helper class to find the latest bundle
-class ReagierenBundleLoader {
-    static func getLatestBundleURL() -> URL? {
-        let fileManager = FileManager.default
-        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
-        let versionsDir = documentsDir.appendingPathComponent("reagieren_versions")
-        
-        guard let contents = try? fileManager.contentsOfDirectory(at: versionsDir, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles) else { return nil }
-        
-        // Sort by creation date (newest first)
-        let sorted = contents.sorted {
-            let d1 = (try? $0.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
-            let d2 = (try? $1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
-            return d1 > d2 
-        }
-        
-        // Return main.jsbundle inside the newest folder
-        // Note: Adjust "main.jsbundle" if your unzipped structure is different
-        if let newestFolder = sorted.first {
-            return newestFolder.appendingPathComponent("main.jsbundle") 
-        }
-        
-        return nil
-    }
 }
 ```
 
@@ -130,40 +104,19 @@ class ReagierenBundleLoader {
 Override `getJSBundleFile` in your `ReactNativeHost`.
 
 ```java
+import com.reagieren.ReagierenModule; // Import module
 import java.io.File;
-import java.util.Arrays;
-import java.util.Comparator;
 
 // ... inside your ReactNativeHost definition
 @Override
 protected String getJSBundleFile() {
     // 1. Check for downloaded updates
-    File latestBundle = ReagierenBundleLoader.getLatestBundle(getApplicationContext());
+    File latestBundle = ReagierenModule.getLatestBundle(getApplicationContext());
     if (latestBundle != null) {
         return latestBundle.getAbsolutePath();
     }
     
     // 2. Fallback to asset
     return super.getJSBundleFile(); // which defaults to "assets://index.android.bundle" usually
-}
-
-// Helper class
-class ReagierenBundleLoader {
-    public static File getLatestBundle(Context context) {
-        File versionsDir = new File(context.getFilesDir(), "reagieren_versions");
-        if (!versionsDir.exists() || !versionsDir.isDirectory()) return null;
-
-        File[] files = versionsDir.listFiles(File::isDirectory);
-        if (files == null || files.length == 0) return null;
-
-        // Sort by modification time (newest first)
-        Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
-        
-        File newestFolder = files[0];
-        // Note: Adjust "index.android.bundle" if your unzipped structure is different
-        File bundleFile = new File(newestFolder, "index.android.bundle");
-        
-        return bundleFile.exists() ? bundleFile : null;
-    }
 }
 ```

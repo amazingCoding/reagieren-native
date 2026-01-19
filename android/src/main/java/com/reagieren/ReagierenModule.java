@@ -274,4 +274,28 @@ public class ReagierenModule extends ReactContextBaseJavaModule {
       }
     });
   }
+
+  public static File getLatestBundle(Context context) {
+    File versionsDir = new File(context.getFilesDir(), VERSIONS_DIR);
+    if (!versionsDir.exists() || !versionsDir.isDirectory())
+      return null;
+
+    File[] files = versionsDir.listFiles(File::isDirectory);
+    if (files == null || files.length == 0)
+      return null;
+
+    // Sort by modification time (newest first)
+    Arrays.sort(files, new Comparator<File>() {
+      @Override
+      public int compare(File f1, File f2) {
+        return Long.compare(f2.lastModified(), f1.lastModified());
+      }
+    });
+
+    File newestFolder = files[0];
+    // Note: Adjust "index.android.bundle" if your unzipped structure is different
+    File bundleFile = new File(newestFolder, "index.android.bundle");
+
+    return bundleFile.exists() ? bundleFile : null;
+  }
 }

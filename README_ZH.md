@@ -89,43 +89,18 @@ const checkForUpdates = async () => {
 修改你的 `sourceURL(for bridge:)` 逻辑以检查更新文件。
 
 ```swift
+// Swift
 func sourceURL(for bridge: RCTBridge) -> URL? {
 #if DEBUG
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
 #else
     // 1. 检查已下载的更新
-    if let latestBundle = ReagierenBundleLoader.getLatestBundleURL() {
+    if let latestBundle = Reagieren.getLatestBundleURL() {
         return latestBundle
     }
     // 2. 回退到打包的资源
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
-}
-
-// 查找最新 bundle 的辅助类
-class ReagierenBundleLoader {
-    static func getLatestBundleURL() -> URL? {
-        let fileManager = FileManager.default
-        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
-        let versionsDir = documentsDir.appendingPathComponent("reagieren_versions")
-        
-        guard let contents = try? fileManager.contentsOfDirectory(at: versionsDir, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles) else { return nil }
-        
-        // 按创建日期排序（最新的在前）
-        let sorted = contents.sorted {
-            let d1 = (try? $0.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
-            let d2 = (try? $1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
-            return d1 > d2 
-        }
-        
-        // 返回最新文件夹中的 main.jsbundle
-        // 注意：如果你解压后的结构不同，请调整 "main.jsbundle"
-        if let newestFolder = sorted.first {
-            return newestFolder.appendingPathComponent("main.jsbundle") 
-        }
-        
-        return nil
-    }
 }
 ```
 
@@ -134,40 +109,19 @@ class ReagierenBundleLoader {
 在你的 `ReactNativeHost` 中重写 `getJSBundleFile`。
 
 ```java
+import com.reagieren.ReagierenModule; // 引入模块
 import java.io.File;
-import java.util.Arrays;
-import java.util.Comparator;
 
 // ... 在你的 ReactNativeHost 定义中
 @Override
 protected String getJSBundleFile() {
     // 1. 检查已下载的更新
-    File latestBundle = ReagierenBundleLoader.getLatestBundle(getApplicationContext());
+    File latestBundle = ReagierenModule.getLatestBundle(getApplicationContext());
     if (latestBundle != null) {
         return latestBundle.getAbsolutePath();
     }
     
     // 2. 回退到 asset
     return super.getJSBundleFile(); // 通常默认为 "assets://index.android.bundle"
-}
-
-// 辅助类
-class ReagierenBundleLoader {
-    public static File getLatestBundle(Context context) {
-        File versionsDir = new File(context.getFilesDir(), "reagieren_versions");
-        if (!versionsDir.exists() || !versionsDir.isDirectory()) return null;
-
-        File[] files = versionsDir.listFiles(File::isDirectory);
-        if (files == null || files.length == 0) return null;
-
-        // 按修改时间排序（最新的在前）
-        Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
-        
-        File newestFolder = files[0];
-        // 注意：如果你解压后的结构不同，请调整 "index.android.bundle"
-        File bundleFile = new File(newestFolder, "index.android.bundle");
-        
-        return bundleFile.exists() ? bundleFile : null;
-    }
 }
 ```

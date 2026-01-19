@@ -167,4 +167,27 @@ class Reagieren: NSObject {
             NotificationCenter.default.post(name: NSNotification.Name("RCTReloadNotification"), object: nil)
         }
     }
+
+    @objc
+    public static func getLatestBundleURL() -> URL? {
+        let fileManager = FileManager.default
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
+        let versionsDir = documentsDir.appendingPathComponent("reagieren_versions")
+        
+        guard let contents = try? fileManager.contentsOfDirectory(at: versionsDir, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles) else { return nil }
+        
+        // Sort by creation date (newest first)
+        let sorted = contents.sorted {
+            let d1 = (try? $0.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
+            let d2 = (try? $1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
+            return d1 > d2 
+        }
+        
+        // Return main.jsbundle inside the newest folder
+        if let newestFolder = sorted.first {
+            return newestFolder.appendingPathComponent("main.jsbundle") 
+        }
+        
+        return nil
+    }
 }
